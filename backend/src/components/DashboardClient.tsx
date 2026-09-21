@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Clock, Laptop, MessageSquare, PlugZap, Trophy, Zap } from "lucide-react";
+import { Clock, Laptop, MessageSquare, PlugZap, RefreshCw, Trophy, Zap } from "lucide-react";
 import {
   formatDuration,
   PROVIDER_COLORS,
@@ -84,19 +84,40 @@ function EmptyState() {
   );
 }
 
+const AUTO_REFRESH_MS = 30_000;
+
 export default function DashboardClient({ initialStats }: { initialStats: Stats }) {
   const [range, setRange] = useState(initialStats.range);
   const [stats, setStats] = useState<Stats>(initialStats);
   const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   useEffect(() => {
-    if (range === initialStats.range) return;
-    setLoading(true);
-    fetch(`/api/stats?range=${range}`)
-      .then((r) => r.json())
-      .then((data) => setStats(data))
-      .finally(() => setLoading(false));
-  }, [range, initialStats.range]);
+    let cancelled = false;
+
+    async function fetchStats(showSpinner: boolean) {
+      if (showSpinner) setLoading(true);
+      try {
+        const res = await fetch(`/api/stats?range=${range}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setStats(data);
+          setLastUpdated(new Date());
+        }
+      } finally {
+        if (showSpinner) setLoading(false);
+      }
+    }
+
+    fetchStats(range !== initialStats.range);
+    const interval = setInterval(() => fetchStats(false), AUTO_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
 
   const providerChartData = useMemo(
     () =>
@@ -157,6 +178,30 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 text-xs text-[var(--text-muted)]">
+        <span>
+          Actualisé à{" "}
+          {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}{" "}
+          · auto toutes les 30s
+        </span>
+        <button
+          onClick={() => {
+            setLoading(true);
+            fetch(`/api/stats?range=${range}`)
+              .then((r) => r.json())
+              .then((data) => {
+                setStats(data);
+                setLastUpdated(new Date());
+              })
+              .finally(() => setLoading(false));
+          }}
+          title="Actualiser maintenant"
+          className="rounded p-1 transition hover:text-white"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </button>
       </div>
 
       <div className={loading ? "opacity-50 transition-opacity" : "transition-opacity"}>
