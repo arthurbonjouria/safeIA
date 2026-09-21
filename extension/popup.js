@@ -2,6 +2,8 @@ const apiBaseInput = document.getElementById("apiBase");
 const apiTokenInput = document.getElementById("apiToken");
 const statusEl = document.getElementById("status");
 const saveBtn = document.getElementById("save");
+const statusBox = document.getElementById("statusBox");
+const testNowBtn = document.getElementById("testNow");
 
 async function load() {
   const { config } = await chrome.storage.local.get("config");
@@ -9,6 +11,45 @@ async function load() {
     apiBaseInput.value = config.apiBase ?? "";
     apiTokenInput.value = config.apiToken ?? "";
   }
+  await renderStatus();
+}
+
+function timeAgo(iso) {
+  if (!iso) return null;
+  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 5) return "à l'instant";
+  if (seconds < 60) return `il y a ${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `il y a ${minutes}min`;
+  return `il y a ${Math.round(minutes / 60)}h`;
+}
+
+async function renderStatus() {
+  const { config } = await chrome.storage.local.get("config");
+  const { status = {} } = await chrome.storage.local.get("status");
+
+  if (!config?.apiBase || !config?.apiToken) {
+    statusBox.innerHTML = `<span class="muted">Pas encore configuré — renseigne l'URL et le token ci-dessus.</span>`;
+    return;
+  }
+
+  const rows = [
+    `<div class="row"><span class="muted">Dernier événement détecté</span><span>${
+      timeAgo(status.lastEventAt) ?? "aucun"
+    }</span></div>`,
+    `<div class="row"><span class="muted">Dernier envoi réussi</span><span>${
+      timeAgo(status.lastFlushAt) ?? "aucun"
+    }</span></div>`,
+    `<div class="row"><span class="muted">En attente d'envoi</span><span>${
+      status.queueLength ?? 0
+    }</span></div>`,
+  ];
+
+  let html = rows.join("");
+  if (status.lastError) {
+    html += `<div class="error">⚠ ${status.lastError} (${timeAgo(status.lastErrorAt)})</div>`;
+  }
+  statusBox.innerHTML = html;
 }
 
 saveBtn.addEventListener("click", async () => {
@@ -43,6 +84,17 @@ saveBtn.addEventListener("click", async () => {
 
   statusEl.textContent = "Enregistré ✓";
   statusEl.className = "ok";
+  await renderStatus();
+});
+
+testNowBtn.addEventListener("click", async () => {
+  testNowBtn.textContent = "Test en cours…";
+  chrome.runtime.sendMessage({ type: "SAFEIA_TEST_NOW" });
+  setTimeout(async () => {
+    testNowBtn.textContent = "Tester maintenant";
+    await renderStatus();
+  }, 1500);
 });
 
 load();
+setInterval(renderStatus, 3000);

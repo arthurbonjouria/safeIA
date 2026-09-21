@@ -5,13 +5,14 @@
   <title>SAFEIA</title>
   <style>
     body {
-      width: 300px;
+      width: 320px;
       font-family: system-ui, sans-serif;
       background: #0a0a0a;
       color: #e5e5e5;
       padding: 16px;
     }
     h1 { font-size: 15px; margin: 0 0 4px; }
+    h2 { font-size: 12px; margin: 16px 0 6px; color: #a3a3a3; text-transform: uppercase; letter-spacing: 0.03em; }
     p.sub { color: #a3a3a3; font-size: 12px; margin: 0 0 14px; }
     label { display: block; font-size: 12px; color: #d4d4d4; margin: 10px 0 4px; }
     input {
@@ -25,7 +26,7 @@
       font-size: 13px;
     }
     button {
-      margin-top: 14px;
+      margin-top: 10px;
       width: 100%;
       background: #ea580c;
       color: white;
@@ -36,9 +37,24 @@
       cursor: pointer;
     }
     button:hover { background: #f97316; }
+    button.secondary {
+      background: #262626;
+    }
+    button.secondary:hover { background: #333; }
     #status { margin-top: 8px; font-size: 12px; }
     .ok { color: #4ade80; }
     .err { color: #f87171; }
+    .status-box {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .status-box .row { display: flex; justify-content: space-between; }
+    .status-box .muted { color: #a3a3a3; }
+    .status-box .error { color: #f87171; margin-top: 4px; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -53,6 +69,10 @@
 
   <button id="save">Enregistrer</button>
   <div id="status"></div>
+
+  <h2>État en direct</h2>
+  <div class="status-box" id="statusBox">Chargement…</div>
+  <button id="testNow" class="secondary">Tester maintenant</button>
 
   <script src="popup.js"></script>
 </body>

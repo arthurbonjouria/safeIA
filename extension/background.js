@@ -9,6 +9,15 @@ const MAX_QUEUE = 1000;
 chrome.alarms.create(TICK_ALARM, { periodInMinutes: TICK_SECONDS / 60 });
 chrome.alarms.create(FLUSH_ALARM, { periodInMinutes: FLUSH_SECONDS / 60 });
 
+function log(...args) {
+  console.log("[SAFEIA]", ...args);
+}
+
+async function setStatus(patch) {
+  const { status = {} } = await chrome.storage.local.get("status");
+  await chrome.storage.local.set({ status: { ...status, ...patch } });
+}
+
 async function getConfig() {
   const { config } = await chrome.storage.local.get("config");
   return config ?? null;
@@ -19,6 +28,8 @@ async function enqueueEvent(event) {
   queue.push({ ...event, occurredAt: new Date().toISOString() });
   if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
   await chrome.storage.local.set({ queue });
+  await setStatus({ queueLength: queue.length, lastEventAt: new Date().toISOString() });
+  log("enqueued", event.eventType, event.provider, "— queue size:", queue.length);
 }
 
 async function getDeviceName() {
@@ -27,36 +38,56 @@ async function getDeviceName() {
 }
 
 async function sampleFocusedTab() {
-  const idleState = await chrome.idle.queryState(60);
-  if (idleState !== "active") return;
+  try {
+    const idleState = await chrome.idle.queryState(60);
+    if (idleState !== "active") {
+      log("skipped tick — idle state:", idleState);
+      return;
+    }
 
-  const windows = await chrome.windows.getAll({ populate: true });
-  const focusedWindow = windows.find((w) => w.focused);
-  if (!focusedWindow) return;
+    const windows = await chrome.windows.getAll({ populate: true });
+    const focusedWindow = windows.find((w) => w.focused);
+    if (!focusedWindow) {
+      log("skipped tick — no focused browser window");
+      return;
+    }
 
-  const activeTab = focusedWindow.tabs?.find((t) => t.active);
-  if (!activeTab?.url) return;
+    const activeTab = focusedWindow.tabs?.find((t) => t.active);
+    if (!activeTab?.url) {
+      log("skipped tick — no active tab url");
+      return;
+    }
 
-  const provider = self.SAFEIA_providerForUrl(activeTab.url);
-  if (!provider) return;
+    const provider = self.SAFEIA_providerForUrl(activeTab.url);
+    if (!provider) {
+      log("skipped tick — not an AI site:", activeTab.url);
+      return;
+    }
 
-  const deviceName = await getDeviceName();
-  await enqueueEvent({
-    source: "BROWSER_EXTENSION",
-    provider,
-    eventType: "HEARTBEAT",
-    durationSeconds: TICK_SECONDS,
-    messageCount: 0,
-    url: activeTab.url,
-    windowTitle: activeTab.title,
-    deviceName,
-    platform: "browser",
-  });
+    const deviceName = await getDeviceName();
+    await enqueueEvent({
+      source: "BROWSER_EXTENSION",
+      provider,
+      eventType: "HEARTBEAT",
+      durationSeconds: TICK_SECONDS,
+      messageCount: 0,
+      url: activeTab.url,
+      windowTitle: activeTab.title,
+      deviceName,
+      platform: "browser",
+    });
+  } catch (err) {
+    log("tick error:", err);
+    await setStatus({ lastError: String(err), lastErrorAt: new Date().toISOString() });
+  }
 }
 
 async function flushQueue() {
   const config = await getConfig();
-  if (!config?.apiBase || !config?.apiToken) return;
+  if (!config?.apiBase || !config?.apiToken) {
+    log("flush skipped — not configured");
+    return;
+  }
 
   const { queue = [] } = await chrome.storage.local.get("queue");
   if (queue.length === 0) return;
@@ -71,10 +102,25 @@ async function flushQueue() {
       body: JSON.stringify(queue),
     });
     if (res.ok) {
+      log("flushed", queue.length, "events successfully");
       await chrome.storage.local.set({ queue: [] });
+      await setStatus({
+        queueLength: 0,
+        lastFlushAt: new Date().toISOString(),
+        lastFlushCount: queue.length,
+        lastError: null,
+      });
+    } else {
+      const body = await res.text().catch(() => "");
+      log("flush failed:", res.status, body);
+      await setStatus({
+        lastError: `HTTP ${res.status}: ${body.slice(0, 200)}`,
+        lastErrorAt: new Date().toISOString(),
+      });
     }
-  } catch {
-    // Network error — keep events queued, retry on next flush.
+  } catch (err) {
+    log("flush network error:", err);
+    await setStatus({ lastError: String(err), lastErrorAt: new Date().toISOString() });
   }
 }
 
@@ -84,6 +130,14 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type === "SAFEIA_TEST_NOW") {
+    (async () => {
+      await sampleFocusedTab();
+      await flushQueue();
+    })();
+    return;
+  }
+
   if (message?.type === "SAFEIA_MESSAGE_SENT" && sender.tab?.url) {
     const provider = self.SAFEIA_providerForUrl(sender.tab.url);
     if (!provider) return;
@@ -101,3 +155,5 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     );
   }
 });
+
+log("service worker loaded");
