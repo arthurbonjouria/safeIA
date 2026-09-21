@@ -89,11 +89,31 @@ saveBtn.addEventListener("click", async () => {
 
 testNowBtn.addEventListener("click", async () => {
   testNowBtn.textContent = "Test en cours…";
-  chrome.runtime.sendMessage({ type: "SAFEIA_TEST_NOW" });
-  setTimeout(async () => {
+  testNowBtn.disabled = true;
+
+  chrome.runtime.sendMessage({ type: "SAFEIA_TEST_NOW" }, async (response) => {
+    testNowBtn.disabled = false;
     testNowBtn.textContent = "Tester maintenant";
+
+    if (!response) {
+      statusEl.textContent = "Pas de réponse de l'extension — recharge-la dans chrome://extensions.";
+      statusEl.className = "err";
+    } else if (!response.configured) {
+      statusEl.textContent = "Configure d'abord l'URL et le token ci-dessus.";
+      statusEl.className = "err";
+    } else if (!response.found) {
+      statusEl.textContent = "Aucun onglet Claude/ChatGPT/Gemini... ouvert. Ouvre-en un puis réessaie.";
+      statusEl.className = "err";
+    } else if (response.flush?.ok) {
+      statusEl.textContent = `Détecté (${response.provider}) et envoyé ✓`;
+      statusEl.className = "ok";
+    } else {
+      statusEl.textContent = `Détecté (${response.provider}) mais envoi échoué : ${response.flush?.reason ?? "erreur inconnue"}`;
+      statusEl.className = "err";
+    }
+
     await renderStatus();
-  }, 1500);
+  });
 });
 
 load();

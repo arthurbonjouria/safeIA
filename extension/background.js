@@ -82,15 +82,43 @@ async function sampleFocusedTab() {
   }
 }
 
+/**
+ * Manual test: scans every open tab (regardless of window focus — the extension's
+ * own popup would otherwise count as "focused" and mask the real active tab).
+ */
+async function sampleAnyOpenTab() {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (!tab.url) continue;
+    const provider = self.SAFEIA_providerForUrl(tab.url);
+    if (!provider) continue;
+
+    const deviceName = await getDeviceName();
+    await enqueueEvent({
+      source: "BROWSER_EXTENSION",
+      provider,
+      eventType: "HEARTBEAT",
+      durationSeconds: TICK_SECONDS,
+      messageCount: 0,
+      url: tab.url,
+      windowTitle: tab.title,
+      deviceName,
+      platform: "browser",
+    });
+    return provider;
+  }
+  return null;
+}
+
 async function flushQueue() {
   const config = await getConfig();
   if (!config?.apiBase || !config?.apiToken) {
     log("flush skipped — not configured");
-    return;
+    return { ok: false, reason: "not_configured" };
   }
 
   const { queue = [] } = await chrome.storage.local.get("queue");
-  if (queue.length === 0) return;
+  if (queue.length === 0) return { ok: true, sent: 0 };
 
   try {
     const res = await fetch(`${config.apiBase.replace(/\/$/, "")}/api/events`, {
@@ -110,17 +138,17 @@ async function flushQueue() {
         lastFlushCount: queue.length,
         lastError: null,
       });
-    } else {
-      const body = await res.text().catch(() => "");
-      log("flush failed:", res.status, body);
-      await setStatus({
-        lastError: `HTTP ${res.status}: ${body.slice(0, 200)}`,
-        lastErrorAt: new Date().toISOString(),
-      });
+      return { ok: true, sent: queue.length };
     }
+    const body = await res.text().catch(() => "");
+    log("flush failed:", res.status, body);
+    const errorMsg = `HTTP ${res.status}: ${body.slice(0, 200)}`;
+    await setStatus({ lastError: errorMsg, lastErrorAt: new Date().toISOString() });
+    return { ok: false, reason: errorMsg };
   } catch (err) {
     log("flush network error:", err);
     await setStatus({ lastError: String(err), lastErrorAt: new Date().toISOString() });
+    return { ok: false, reason: String(err) };
   }
 }
 
@@ -129,13 +157,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === FLUSH_ALARM) flushQueue();
 });
 
-chrome.runtime.onMessage.addListener((message, sender) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SAFEIA_TEST_NOW") {
     (async () => {
-      await sampleFocusedTab();
-      await flushQueue();
+      const config = await getConfig();
+      if (!config?.apiBase || !config?.apiToken) {
+        sendResponse({ found: false, configured: false });
+        return;
+      }
+      const provider = await sampleAnyOpenTab();
+      const flushResult = await flushQueue();
+      sendResponse({ found: Boolean(provider), provider, configured: true, flush: flushResult });
     })();
-    return;
+    return true; // keep the message channel open for the async sendResponse above
   }
 
   if (message?.type === "SAFEIA_MESSAGE_SENT" && sender.tab?.url) {
