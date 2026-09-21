@@ -12,6 +12,10 @@ export const PROVIDER_LABELS: Record<string, string> = {
   COPILOT: "Copilot",
   PERPLEXITY: "Perplexity",
   MISTRAL: "Mistral",
+  GROK: "Grok",
+  DEEPSEEK: "DeepSeek",
+  META: "Meta AI",
+  POE: "Poe",
   OTHER: "Autre",
 };
 
@@ -32,5 +36,9 @@ export const PROVIDER_COLORS: Record<string, string> = {
   COPILOT: "#8e5ce6",
   PERPLEXITY: "#1fb6a3",
   MISTRAL: "#ff7000",
+  GROK: "#e5e5e5",
+  DEEPSEEK: "#4d6bfe",
+  META: "#0668e1",
+  POE: "#8b5cf6",
   OTHER: "#737373",
 };

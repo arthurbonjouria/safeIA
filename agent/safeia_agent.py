@@ -59,7 +59,11 @@ PROVIDER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"gemini", re.IGNORECASE), "GEMINI"),
     (re.compile(r"copilot", re.IGNORECASE), "COPILOT"),
     (re.compile(r"perplexity", re.IGNORECASE), "PERPLEXITY"),
-    (re.compile(r"mistral", re.IGNORECASE), "MISTRAL"),
+    (re.compile(r"mistral|le chat", re.IGNORECASE), "MISTRAL"),
+    (re.compile(r"\bgrok\b", re.IGNORECASE), "GROK"),
+    (re.compile(r"deepseek", re.IGNORECASE), "DEEPSEEK"),
+    (re.compile(r"meta ai", re.IGNORECASE), "META"),
+    (re.compile(r"\bpoe\b", re.IGNORECASE), "POE"),
 ]
 
 

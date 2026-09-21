@@ -24,6 +24,10 @@ enum Provider {
   COPILOT
   PERPLEXITY
   MISTRAL
+  GROK
+  DEEPSEEK
+  META
+  POE
   OTHER
 }
 

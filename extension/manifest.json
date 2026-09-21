@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SAFEIA — Suivi d'usage IA",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mesure le temps passé et les messages envoyés sur Claude, ChatGPT, Gemini et autres IA, et remonte les statistiques vers votre tableau de bord SAFEIA.",
   "permissions": ["storage", "alarms", "idle", "tabs"],
   "optional_host_permissions": ["https://*/*", "http://localhost/*"],
@@ -11,8 +11,17 @@
     "https://chat.openai.com/*",
     "https://gemini.google.com/*",
     "https://copilot.microsoft.com/*",
+    "https://m365.cloud.microsoft/*",
     "https://www.perplexity.ai/*",
-    "https://chat.mistral.ai/*"
+    "https://perplexity.ai/*",
+    "https://chat.mistral.ai/*",
+    "https://mistral.ai/*",
+    "https://grok.com/*",
+    "https://x.ai/*",
+    "https://chat.deepseek.com/*",
+    "https://www.meta.ai/*",
+    "https://meta.ai/*",
+    "https://poe.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -25,8 +34,17 @@
         "https://chat.openai.com/*",
         "https://gemini.google.com/*",
         "https://copilot.microsoft.com/*",
+        "https://m365.cloud.microsoft/*",
         "https://www.perplexity.ai/*",
-        "https://chat.mistral.ai/*"
+        "https://perplexity.ai/*",
+        "https://chat.mistral.ai/*",
+        "https://mistral.ai/*",
+        "https://grok.com/*",
+        "https://x.ai/*",
+        "https://chat.deepseek.com/*",
+        "https://www.meta.ai/*",
+        "https://meta.ai/*",
+        "https://poe.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

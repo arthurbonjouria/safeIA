@@ -11,6 +11,10 @@ const PROVIDERS: Provider[] = [
   "COPILOT",
   "PERPLEXITY",
   "MISTRAL",
+  "GROK",
+  "DEEPSEEK",
+  "META",
+  "POE",
   "OTHER",
 ];
 const EVENT_TYPES: EventType[] = [
