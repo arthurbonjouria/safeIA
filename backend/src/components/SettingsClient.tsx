@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Copy, Download, Globe, Key, Laptop, RefreshCw, User } from "lucide-react";
 
-const REPO_ZIP_URL = "https://github.com/arthurbonjouria/safeIA/archive/refs/heads/main.zip";
+const EXTENSION_ZIP_URL = "https://github.com/arthurbonjouria/safeIA/raw/main/downloads/safeia-extension.zip";
+const AGENT_SRC_ZIP_URL = "https://github.com/arthurbonjouria/safeIA/raw/main/downloads/safeia-agent-src.zip";
 const AGENT_EXE_URL = "https://github.com/arthurbonjouria/safeIA/raw/main/agent/dist/SAFEIA-Agent.exe";
 
 function CodeBlock({ children }: { children: string }) {
@@ -111,15 +112,14 @@ export default function SettingsClient({
         </div>
         <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-zinc-300">
           <li>
-            Télécharge le code :{" "}
             <a
-              href={REPO_ZIP_URL}
+              href={EXTENSION_ZIP_URL}
               className="inline-flex items-center gap-1 font-medium text-orange-400 hover:text-orange-300"
             >
               <Download className="h-3.5 w-3.5" />
-              Télécharger le ZIP
+              Télécharger l&apos;extension (ZIP)
             </a>{" "}
-            puis dézippe-le et repère le dossier <code className="text-orange-300">extension/</code>.
+            puis dézippe-le (un dossier <code className="text-orange-300">extension/</code> apparaît).
           </li>
           <li>
             Ouvre <code className="text-orange-300">chrome://extensions</code> (ou{" "}
@@ -184,10 +184,10 @@ export default function SettingsClient({
           <ol className="mt-3 list-inside list-decimal space-y-2">
             <li>
               Télécharge le code :{" "}
-              <a href={REPO_ZIP_URL} className="font-medium text-orange-400 hover:text-orange-300">
-                ZIP du repo
+              <a href={AGENT_SRC_ZIP_URL} className="font-medium text-orange-400 hover:text-orange-300">
+                ZIP du script Python
               </a>{" "}
-              et repère le dossier <code className="text-orange-300">agent/</code>.
+              et dézippe-le.
             </li>
             <li>Installe les dépendances :</li>
           </ol>
