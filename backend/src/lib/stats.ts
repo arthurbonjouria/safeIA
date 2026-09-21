@@ -9,6 +9,8 @@ export function rangeToDate(range: string): Date {
 
 export async function getStats(sessionUser: User, range: string) {
   const since = rangeToDate(range);
+  const now = new Date();
+  const previousSince = new Date(since.getTime() - (now.getTime() - since.getTime()));
 
   const userScope =
     sessionUser.role === "ADMIN"
@@ -22,8 +24,12 @@ export async function getStats(sessionUser: User, range: string) {
   const userIds = scopedUsers.map((u) => u.id);
 
   const where = { userId: { in: userIds }, occurredAt: { gte: since } };
+  const previousWhere = {
+    userId: { in: userIds },
+    occurredAt: { gte: previousSince, lt: since },
+  };
 
-  const [byProvider, bySource, byUser, totals, dailyRaw] = await Promise.all([
+  const [byProvider, bySource, byUser, totals, previousTotals, dailyRaw, hourlyRaw] = await Promise.all([
     prisma.usageEvent.groupBy({
       by: ["provider"],
       where,
@@ -47,6 +53,11 @@ export async function getStats(sessionUser: User, range: string) {
       _sum: { durationSeconds: true, messageCount: true },
       _count: { _all: true },
     }),
+    prisma.usageEvent.aggregate({
+      where: previousWhere,
+      _sum: { durationSeconds: true, messageCount: true },
+      _count: { _all: true },
+    }),
     userIds.length > 0
       ? prisma.$queryRawUnsafe<
           { day: Date; provider: string; duration: bigint; messages: bigint }[]
@@ -62,7 +73,25 @@ export async function getStats(sessionUser: User, range: string) {
           since
         )
       : Promise.resolve([]),
+    userIds.length > 0
+      ? prisma.$queryRawUnsafe<{ hour: number; duration: bigint; messages: bigint }[]>(
+          `SELECT EXTRACT(HOUR FROM "occurredAt")::int as hour,
+                  SUM("durationSeconds")::bigint as duration,
+                  SUM("messageCount")::bigint as messages
+           FROM "UsageEvent"
+           WHERE "userId" = ANY($1) AND "occurredAt" >= $2
+           GROUP BY hour
+           ORDER BY hour ASC`,
+          userIds,
+          since
+        )
+      : Promise.resolve([]),
   ]);
+
+  function pctChange(current: number, previous: number): number | null {
+    if (previous === 0) return current > 0 ? null : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  }
 
   const userMap = new Map(scopedUsers.map((u) => [u.id, u]));
 
@@ -102,6 +131,25 @@ export async function getStats(sessionUser: User, range: string) {
       durationSeconds: Number(d.duration),
       messageCount: Number(d.messages),
     })),
+    hourly: Array.from({ length: 24 }, (_, hour) => {
+      const row = hourlyRaw.find((h) => h.hour === hour);
+      return {
+        hour,
+        durationSeconds: row ? Number(row.duration) : 0,
+        messageCount: row ? Number(row.messages) : 0,
+      };
+    }),
+    trends: {
+      durationSeconds: pctChange(
+        totals._sum.durationSeconds ?? 0,
+        previousTotals._sum.durationSeconds ?? 0
+      ),
+      messageCount: pctChange(
+        totals._sum.messageCount ?? 0,
+        previousTotals._sum.messageCount ?? 0
+      ),
+      events: pctChange(totals._count._all, previousTotals._count._all),
+    },
   };
 }
 

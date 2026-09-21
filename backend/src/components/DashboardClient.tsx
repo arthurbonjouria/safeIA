@@ -15,7 +15,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Clock, Laptop, MessageSquare, PlugZap, RefreshCw, Trophy, Zap } from "lucide-react";
+import {
+  Clock,
+  Laptop,
+  MessageSquare,
+  PlugZap,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  Zap,
+} from "lucide-react";
 import {
   formatDuration,
   PROVIDER_COLORS,
@@ -32,20 +42,48 @@ const RANGES = [
   { value: "90d", label: "90 jours" },
 ];
 
+function TrendBadge({ pct }: { pct: number | null }) {
+  if (pct === null) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-1.5 py-0.5 text-xs font-medium text-orange-400">
+        Nouveau
+      </span>
+    );
+  }
+  if (pct === 0) return null;
+  const up = pct > 0;
+  const Icon = up ? TrendingUp : TrendingDown;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${
+        up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+      }`}
+    >
+      <Icon className="h-3 w-3" />
+      {Math.abs(pct)}%
+    </span>
+  );
+}
+
 function StatTile({
   label,
   value,
   icon: Icon,
+  trend,
 }: {
   label: string;
   value: string;
   icon: typeof Clock;
+  trend?: number | null;
 }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-      <div className="flex items-center gap-2 text-[var(--text-muted)]">
-        <Icon className="h-4 w-4" />
-        <p className="text-sm">{label}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[var(--text-muted)]">
+          <Icon className="h-4 w-4" />
+          <p className="text-sm">{label}</p>
+        </div>
+        {trend !== undefined && <TrendBadge pct={trend} />}
       </div>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</p>
     </div>
@@ -123,6 +161,29 @@ function DailyTooltip({
           {PROVIDER_LABELS[p.dataKey] ?? p.dataKey} : {formatDuration(p.value * 60)}
         </p>
       ))}
+    </div>
+  );
+}
+
+function HourlyTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { payload: { durationSeconds: number; messages: number } }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0].payload;
+  if (row.durationSeconds === 0) return null;
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[#131316] px-3 py-2 text-sm shadow-xl">
+      <p className="mb-1 font-medium text-white">{label}</p>
+      <p className="text-[var(--text-muted)]">Temps : {formatDuration(row.durationSeconds)}</p>
+      <p className="text-[var(--text-muted)]">
+        Messages : {row.messages.toLocaleString("fr-FR")}
+      </p>
     </div>
   );
 }
@@ -217,6 +278,30 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
     [stats.daily]
   );
 
+  const messagesChartData = useMemo(
+    () =>
+      stats.byProvider
+        .map((p) => ({
+          name: PROVIDER_LABELS[p.provider] ?? p.provider,
+          provider: p.provider,
+          messages: p.messageCount,
+          durationSeconds: p.durationSeconds,
+        }))
+        .sort((a, b) => b.messages - a.messages),
+    [stats.byProvider]
+  );
+
+  const hourlyChartData = useMemo(
+    () =>
+      stats.hourly.map((h) => ({
+        hour: `${h.hour}h`,
+        minutes: Math.round(h.durationSeconds / 60),
+        durationSeconds: h.durationSeconds,
+        messages: h.messageCount,
+      })),
+    [stats.hourly]
+  );
+
   const hasData = stats.totals.events > 0;
 
   return (
@@ -283,18 +368,24 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
                 icon={Clock}
                 label="Temps total"
                 value={formatDuration(stats.totals.durationSeconds)}
+                trend={stats.trends.durationSeconds}
               />
               <StatTile
                 icon={MessageSquare}
                 label="Messages envoyés"
                 value={stats.totals.messageCount.toLocaleString("fr-FR")}
+                trend={stats.trends.messageCount}
               />
               <StatTile
                 icon={Zap}
                 label="Sessions / événements"
                 value={stats.totals.events.toLocaleString("fr-FR")}
+                trend={stats.trends.events}
               />
             </div>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              Évolution par rapport à la période précédente équivalente.
+            </p>
 
             <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <ChartCard
@@ -369,6 +460,47 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
                       />
                     ))}
                   </LineChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <ChartCard
+                title="Messages par IA"
+                subtitle="Nombre de messages envoyés à chaque IA sur la période sélectionnée."
+              >
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={messagesChartData} margin={{ left: -12 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#232327" vertical={false} />
+                    <XAxis dataKey="name" stroke="#8b8b93" fontSize={12} />
+                    <YAxis stroke="#8b8b93" fontSize={12} allowDecimals={false} />
+                    <Tooltip content={<ProviderTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                    <Bar dataKey="messages" radius={[4, 4, 0, 0]} maxBarSize={56}>
+                      {messagesChartData.map((entry) => (
+                        <Cell key={entry.provider} fill={PROVIDER_COLORS[entry.provider]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard
+                title="Répartition par heure"
+                subtitle="À quels moments de la journée l'IA est utilisée (heure UTC), tous outils confondus."
+              >
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={hourlyChartData} margin={{ left: -12 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#232327" vertical={false} />
+                    <XAxis
+                      dataKey="hour"
+                      stroke="#8b8b93"
+                      fontSize={11}
+                      interval={2}
+                    />
+                    <YAxis stroke="#8b8b93" fontSize={12} allowDecimals={false} />
+                    <Tooltip content={<HourlyTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                    <Bar dataKey="minutes" radius={[3, 3, 0, 0]} fill="#f97316" maxBarSize={18} />
+                  </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
