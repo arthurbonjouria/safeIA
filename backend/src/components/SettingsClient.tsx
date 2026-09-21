@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, Download, Globe, Key, Laptop, RefreshCw, User } from "lucide-react";
 
 const REPO_ZIP_URL = "https://github.com/arthurbonjouria/safeIA/archive/refs/heads/main.zip";
+const AGENT_EXE_URL = "https://github.com/arthurbonjouria/safeIA/raw/main/agent/dist/SAFEIA-Agent.exe";
 
 function CodeBlock({ children }: { children: string }) {
   return (
@@ -149,35 +150,60 @@ export default function SettingsClient({
           Détecte l&apos;usage des applications IA installées sur ton PC (ex : app Claude, app
           ChatGPT) — jamais le contenu des conversations.
         </p>
-        <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-zinc-300">
-          <li>
-            Télécharge le code (même ZIP que ci-dessus) et repère le dossier{" "}
-            <code className="text-orange-300">agent/</code>.
-          </li>
-          <li>Ouvre un terminal dans ce dossier et installe les dépendances :</li>
-        </ol>
-        <div className="mt-2 pl-5">
-          <CodeBlock>{"pip install -r requirements.txt"}</CodeBlock>
+
+        <div className="mt-4 rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
+          <p className="text-sm font-medium text-white">Installation en 2 clics</p>
+          <ol className="mt-2 list-inside list-decimal space-y-1.5 text-sm text-zinc-300">
+            <li>
+              <a
+                href={AGENT_EXE_URL}
+                className="inline-flex items-center gap-1 font-medium text-orange-400 hover:text-orange-300"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Télécharger SAFEIA-Agent.exe
+              </a>
+            </li>
+            <li>Double-clique le fichier téléchargé.</li>
+            <li>
+              Colle ton token (copié ci-dessus) dans la fenêtre qui s&apos;ouvre, puis clique{" "}
+              <strong>Démarrer</strong>.
+            </li>
+          </ol>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            C&apos;est tout — il tourne en arrière-plan et se relance automatiquement à chaque
+            connexion Windows. Windows peut afficher un avertissement &quot;éditeur
+            inconnu&quot; (SmartScreen) car l&apos;app n&apos;est pas signée : clique{" "}
+            <strong>Informations complémentaires → Exécuter quand même</strong>.
+          </p>
         </div>
-        <ol start={3} className="mt-2 list-inside list-decimal space-y-2 text-sm text-zinc-300">
-          <li>Configure l&apos;agent avec ton token :</li>
-        </ol>
-        <div className="mt-2 pl-5">
-          <CodeBlock>
-            {`python safeia_agent.py configure --api-base ${origin} --api-token ${token}`}
-          </CodeBlock>
-        </div>
-        <ol start={4} className="mt-2 list-inside list-decimal space-y-2 text-sm text-zinc-300">
-          <li>Lance-le :</li>
-        </ol>
-        <div className="mt-2 pl-5">
-          <CodeBlock>{"python safeia_agent.py run"}</CodeBlock>
-        </div>
-        <p className="mt-3 text-xs text-[var(--text-muted)]">
-          Pour qu&apos;il démarre automatiquement avec Windows, crée une tâche planifiée
-          (Planificateur de tâches → Déclencheur &quot;À l&apos;ouverture de session&quot; →
-          Action <code className="text-orange-300">pythonw.exe safeia_agent.py run</code>).
-        </p>
+
+        <details className="mt-4 text-sm text-zinc-300">
+          <summary className="cursor-pointer text-[var(--text-muted)] hover:text-white">
+            Installation manuelle (avancé, nécessite Python)
+          </summary>
+          <ol className="mt-3 list-inside list-decimal space-y-2">
+            <li>
+              Télécharge le code :{" "}
+              <a href={REPO_ZIP_URL} className="font-medium text-orange-400 hover:text-orange-300">
+                ZIP du repo
+              </a>{" "}
+              et repère le dossier <code className="text-orange-300">agent/</code>.
+            </li>
+            <li>Installe les dépendances :</li>
+          </ol>
+          <div className="mt-2 pl-5">
+            <CodeBlock>{"pip install -r requirements.txt"}</CodeBlock>
+          </div>
+          <ol start={3} className="mt-2 list-inside list-decimal space-y-2">
+            <li>Configure puis lance :</li>
+          </ol>
+          <div className="mt-2 space-y-2 pl-5">
+            <CodeBlock>
+              {`python safeia_agent.py configure --api-base ${origin} --api-token ${token}`}
+            </CodeBlock>
+            <CodeBlock>{"python safeia_agent.py run"}</CodeBlock>
+          </div>
+        </details>
       </div>
     </div>
   );
