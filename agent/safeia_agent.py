@@ -170,8 +170,16 @@ class Agent:
     def run(self) -> None:
         print(f"[safeia] agent started — reporting to {self.api_base} as {self.device_name}")
         last_flush = time.monotonic()
+        last_tick = time.monotonic()
         while True:
             time.sleep(TICK_SECONDS)
+
+            # Measure the real elapsed time instead of assuming exactly TICK_SECONDS —
+            # the tick can be delayed under system load. Capped so a resume from sleep
+            # (which the idle check below would skip anyway) never inflates the count.
+            now = time.monotonic()
+            elapsed = min(now - last_tick, TICK_SECONDS * 3)
+            last_tick = now
 
             if get_idle_seconds() >= IDLE_THRESHOLD_SECONDS:
                 continue
@@ -183,7 +191,7 @@ class Agent:
             title, process_name = window
             provider = detect_provider(title, process_name)
             if provider:
-                self.enqueue(provider, TICK_SECONDS, title)
+                self.enqueue(provider, round(elapsed), title)
 
             if time.monotonic() - last_flush >= FLUSH_SECONDS:
                 self.flush()

@@ -37,7 +37,24 @@ async function getDeviceName() {
   return config?.deviceName || "browser-extension";
 }
 
+/**
+ * Measures the real elapsed time since the previous tick instead of assuming
+ * exactly TICK_SECONDS — Chrome can delay alarms under load or throttling.
+ * Persisted to storage since the MV3 service worker can be killed and
+ * restarted between ticks. Capped so a suspended/killed worker resuming
+ * after a long gap never inflates the count (the idle check handles that
+ * case separately anyway).
+ */
+async function getElapsedSinceLastTick() {
+  const { lastTickAt } = await chrome.storage.local.get("lastTickAt");
+  const now = Date.now();
+  const elapsed = lastTickAt ? Math.min((now - lastTickAt) / 1000, TICK_SECONDS * 3) : TICK_SECONDS;
+  await chrome.storage.local.set({ lastTickAt: now });
+  return Math.round(elapsed);
+}
+
 async function sampleFocusedTab() {
+  const elapsedSeconds = await getElapsedSinceLastTick();
   try {
     const idleState = await chrome.idle.queryState(60);
     if (idleState !== "active") {
@@ -69,7 +86,7 @@ async function sampleFocusedTab() {
       source: "BROWSER_EXTENSION",
       provider,
       eventType: "HEARTBEAT",
-      durationSeconds: TICK_SECONDS,
+      durationSeconds: elapsedSeconds,
       messageCount: 0,
       url: activeTab.url,
       windowTitle: activeTab.title,
