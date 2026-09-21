@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum Source {
+  BROWSER_EXTENSION
+  DESKTOP_AGENT
+}
+
+enum Provider {
+  CLAUDE
+  CHATGPT
+  GEMINI
+  COPILOT
+  PERPLEXITY
+  MISTRAL
+  OTHER
+}
+
+enum EventType {
+  HEARTBEAT
+  MESSAGE_SENT
+  SESSION_START
+  SESSION_END
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  users     User[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String
+  passwordHash   String
+  role           Role         @default(MEMBER)
+  apiToken       String       @unique @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  devices        Device[]
+  events         UsageEvent[]
+  createdAt      DateTime     @default(now())
+}
+
+model Device {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  name       String
+  platform   String
+  lastSeenAt DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+  events     UsageEvent[]
+
+  @@unique([userId, name])
+}
+
+model UsageEvent {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  deviceId        String?
+  device          Device?   @relation(fields: [deviceId], references: [id])
+  source          Source
+  provider        Provider
+  eventType       EventType
+  occurredAt      DateTime  @default(now())
+  durationSeconds Int       @default(0)
+  messageCount    Int       @default(0)
+  windowTitle     String?
+  url             String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([provider, occurredAt])
+  @@index([occurredAt])
+}

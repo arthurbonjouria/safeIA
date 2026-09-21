@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "SAFEIA — Suivi d'usage IA",
+  "version": "1.0.0",
+  "description": "Mesure le temps passé et les messages envoyés sur Claude, ChatGPT, Gemini et autres IA, et remonte les statistiques vers votre tableau de bord SAFEIA.",
+  "permissions": ["storage", "alarms", "idle", "tabs"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://www.perplexity.ai/*",
+    "https://chat.mistral.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://www.perplexity.ai/*",
+        "https://chat.mistral.ai/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SAFEIA"
+  }
+}

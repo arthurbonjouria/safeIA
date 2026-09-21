@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>SAFEIA</title>
+  <style>
+    body {
+      width: 300px;
+      font-family: system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      padding: 16px;
+    }
+    h1 { font-size: 15px; margin: 0 0 4px; }
+    p.sub { color: #a3a3a3; font-size: 12px; margin: 0 0 14px; }
+    label { display: block; font-size: 12px; color: #d4d4d4; margin: 10px 0 4px; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      background: #171717;
+      border: 1px solid #404040;
+      border-radius: 6px;
+      color: white;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+    button {
+      margin-top: 14px;
+      width: 100%;
+      background: #ea580c;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover { background: #f97316; }
+    #status { margin-top: 8px; font-size: 12px; }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>SAFEIA</h1>
+  <p class="sub">Connecte cette extension à ton tableau de bord SAFEIA.</p>
+
+  <label for="apiBase">URL du backend</label>
+  <input id="apiBase" placeholder="https://votre-app.vercel.app" />
+
+  <label for="apiToken">Token API</label>
+  <input id="apiToken" placeholder="Depuis Paramètres > Token API" />
+
+  <button id="save">Enregistrer</button>
+  <div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
