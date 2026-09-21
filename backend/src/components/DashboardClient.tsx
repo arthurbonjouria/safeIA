@@ -52,11 +52,77 @@ function StatTile({
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-      <h2 className="mb-4 text-sm font-medium text-zinc-300">{title}</h2>
-      {children}
+      <h2 className="text-sm font-medium text-zinc-300">{title}</h2>
+      {subtitle && <p className="mb-4 mt-0.5 text-xs text-[var(--text-muted)]">{subtitle}</p>}
+      <div className={subtitle ? "" : "mt-4"}>{children}</div>
+    </div>
+  );
+}
+
+function formatDayLabel(day: string) {
+  return new Date(day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+function ProviderTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { payload: { provider: string; durationSeconds: number; messages: number } }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[#131316] px-3 py-2 text-sm shadow-xl">
+      <p className="mb-1 flex items-center gap-1.5 font-medium text-white">
+        <span
+          className="h-2 w-2 rounded-full"
+          style={{ backgroundColor: PROVIDER_COLORS[row.provider] }}
+        />
+        {label}
+      </p>
+      <p className="text-[var(--text-muted)]">Temps : {formatDuration(row.durationSeconds)}</p>
+      <p className="text-[var(--text-muted)]">
+        Messages : {row.messages.toLocaleString("fr-FR")}
+      </p>
+    </div>
+  );
+}
+
+function DailyTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { dataKey: string; value: number; color: string }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const sorted = [...payload].filter((p) => p.value > 0).sort((a, b) => b.value - a.value);
+  if (sorted.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[#131316] px-3 py-2 text-sm shadow-xl">
+      <p className="mb-1 font-medium text-white">{label ? formatDayLabel(label) : ""}</p>
+      {sorted.map((p) => (
+        <p key={p.dataKey} className="flex items-center gap-1.5 text-[var(--text-muted)]">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+          {PROVIDER_LABELS[p.dataKey] ?? p.dataKey} : {formatDuration(p.value * 60)}
+        </p>
+      ))}
     </div>
   );
 }
@@ -125,10 +191,11 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
         .map((p) => ({
           name: PROVIDER_LABELS[p.provider] ?? p.provider,
           provider: p.provider,
-          heures: Math.round((p.durationSeconds / 3600) * 10) / 10,
+          minutes: Math.round(p.durationSeconds / 60),
+          durationSeconds: p.durationSeconds,
           messages: p.messageCount,
         }))
-        .sort((a, b) => b.heures - a.heures),
+        .sort((a, b) => b.minutes - a.minutes),
     [stats.byProvider]
   );
 
@@ -138,7 +205,7 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
       const key = new Date(d.day).toISOString().slice(0, 10);
       if (!days.has(key)) days.set(key, { day: key });
       const row = days.get(key)!;
-      row[d.provider] = Math.round((d.durationSeconds / 3600) * 10) / 10;
+      row[d.provider] = Math.round(d.durationSeconds / 60);
     }
     return Array.from(days.values()).sort((a, b) =>
       String(a.day).localeCompare(String(b.day))
@@ -230,21 +297,27 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <ChartCard title="Temps par IA (heures)">
+              <ChartCard
+                title="Temps par IA"
+                subtitle="Temps cumulé passé sur chaque IA sur la période sélectionnée. Survole une barre pour le détail."
+              >
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={providerChartData}>
+                  <BarChart data={providerChartData} margin={{ left: -12 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#232327" vertical={false} />
                     <XAxis dataKey="name" stroke="#8b8b93" fontSize={12} />
-                    <YAxis stroke="#8b8b93" fontSize={12} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "#131316",
-                        border: "1px solid #232327",
-                        borderRadius: 8,
+                    <YAxis
+                      stroke="#8b8b93"
+                      fontSize={12}
+                      label={{
+                        value: "minutes",
+                        angle: -90,
+                        position: "insideLeft",
+                        fill: "#8b8b93",
+                        fontSize: 11,
                       }}
-                      labelStyle={{ color: "#fff" }}
                     />
-                    <Bar dataKey="heures" radius={[4, 4, 0, 0]}>
+                    <Tooltip content={<ProviderTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                    <Bar dataKey="minutes" radius={[4, 4, 0, 0]} maxBarSize={56}>
                       {providerChartData.map((entry) => (
                         <Cell key={entry.provider} fill={PROVIDER_COLORS[entry.provider]} />
                       ))}
@@ -253,30 +326,46 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Évolution quotidienne (heures)">
+              <ChartCard
+                title="Évolution quotidienne"
+                subtitle="Comment l'usage de chaque IA évolue jour après jour (temps en minutes)."
+              >
                 <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={dailyChartData}>
+                  <LineChart data={dailyChartData} margin={{ left: -12 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#232327" vertical={false} />
-                    <XAxis dataKey="day" stroke="#8b8b93" fontSize={12} />
-                    <YAxis stroke="#8b8b93" fontSize={12} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "#131316",
-                        border: "1px solid #232327",
-                        borderRadius: 8,
-                      }}
-                      labelStyle={{ color: "#fff" }}
+                    <XAxis
+                      dataKey="day"
+                      stroke="#8b8b93"
+                      fontSize={12}
+                      tickFormatter={formatDayLabel}
                     />
-                    <Legend />
+                    <YAxis
+                      stroke="#8b8b93"
+                      fontSize={12}
+                      label={{
+                        value: "minutes",
+                        angle: -90,
+                        position: "insideLeft",
+                        fill: "#8b8b93",
+                        fontSize: 11,
+                      }}
+                    />
+                    <Tooltip content={<DailyTooltip />} cursor={{ stroke: "#333" }} />
+                    <Legend
+                      formatter={(value: string) => (
+                        <span style={{ color: "#d4d4d8" }}>{PROVIDER_LABELS[value] ?? value}</span>
+                      )}
+                    />
                     {activeProviders.map((p) => (
                       <Line
                         key={p}
                         type="monotone"
                         dataKey={p}
-                        name={PROVIDER_LABELS[p] ?? p}
+                        name={p}
                         stroke={PROVIDER_COLORS[p] ?? "#888"}
                         strokeWidth={2}
-                        dot={false}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
                       />
                     ))}
                   </LineChart>
@@ -286,10 +375,16 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
 
             {stats.bySource.length > 0 && (
               <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-                <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-300">
+                <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-300">
                   <Laptop className="h-4 w-4 text-orange-400" />
                   Web vs. PC — où se passe l&apos;usage IA ?
                 </h2>
+                <p className="mb-4 mt-0.5 text-xs text-[var(--text-muted)]">
+                  <strong className="text-sky-400">Web</strong> = détecté par l&apos;extension
+                  navigateur (claude.ai, chatgpt.com...) ·{" "}
+                  <strong className="text-violet-400">PC</strong> = détecté par l&apos;agent
+                  desktop (applications natives installées).
+                </p>
                 {(() => {
                   const total = stats.bySource.reduce((s, x) => s + x.durationSeconds, 0) || 1;
                   return (
@@ -333,10 +428,13 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
 
             {stats.isAdmin && (
               <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-                <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-300">
+                <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-300">
                   <Trophy className="h-4 w-4 text-orange-400" />
                   Comparaison par utilisateur
                 </h2>
+                <p className="mb-4 mt-0.5 text-xs text-[var(--text-muted)]">
+                  Classé par temps d&apos;usage total sur la période sélectionnée.
+                </p>
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
