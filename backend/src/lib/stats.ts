@@ -23,9 +23,15 @@ export async function getStats(sessionUser: User, range: string) {
 
   const where = { userId: { in: userIds }, occurredAt: { gte: since } };
 
-  const [byProvider, byUser, totals, dailyRaw] = await Promise.all([
+  const [byProvider, bySource, byUser, totals, dailyRaw] = await Promise.all([
     prisma.usageEvent.groupBy({
       by: ["provider"],
+      where,
+      _sum: { durationSeconds: true, messageCount: true },
+      _count: { _all: true },
+    }),
+    prisma.usageEvent.groupBy({
+      by: ["source"],
       where,
       _sum: { durationSeconds: true, messageCount: true },
       _count: { _all: true },
@@ -73,6 +79,12 @@ export async function getStats(sessionUser: User, range: string) {
       durationSeconds: p._sum.durationSeconds ?? 0,
       messageCount: p._sum.messageCount ?? 0,
       events: p._count._all,
+    })),
+    bySource: bySource.map((s) => ({
+      source: s.source,
+      durationSeconds: s._sum.durationSeconds ?? 0,
+      messageCount: s._sum.messageCount ?? 0,
+      events: s._count._all,
     })),
     byUser: byUser
       .map((u) => ({

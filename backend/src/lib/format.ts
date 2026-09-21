@@ -15,6 +15,16 @@ export const PROVIDER_LABELS: Record<string, string> = {
   OTHER: "Autre",
 };
 
+export const SOURCE_LABELS: Record<string, string> = {
+  BROWSER_EXTENSION: "Navigateur (web)",
+  DESKTOP_AGENT: "PC (apps desktop)",
+};
+
+export const SOURCE_COLORS: Record<string, string> = {
+  BROWSER_EXTENSION: "#38bdf8",
+  DESKTOP_AGENT: "#a78bfa",
+};
+
 export const PROVIDER_COLORS: Record<string, string> = {
   CLAUDE: "#d97757",
   CHATGPT: "#10a37f",

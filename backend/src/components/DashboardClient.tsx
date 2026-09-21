@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -14,7 +15,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatDuration, PROVIDER_COLORS, PROVIDER_LABELS } from "@/lib/format";
+import { Clock, Laptop, MessageSquare, PlugZap, Trophy, Zap } from "lucide-react";
+import {
+  formatDuration,
+  PROVIDER_COLORS,
+  PROVIDER_LABELS,
+  SOURCE_COLORS,
+  SOURCE_LABELS,
+} from "@/lib/format";
 import type { Stats } from "@/lib/stats";
 
 const RANGES = [
@@ -24,11 +32,54 @@ const RANGES = [
   { value: "90d", label: "90 jours" },
 ];
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Clock;
+}) {
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-      <p className="text-sm text-neutral-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+      <div className="flex items-center gap-2 text-[var(--text-muted)]">
+        <Icon className="h-4 w-4" />
+        <p className="text-sm">{label}</p>
+      </div>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</p>
+    </div>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+      <h2 className="mb-4 text-sm font-medium text-zinc-300">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-orange-500/10 text-orange-400">
+        <PlugZap className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-zinc-300">Aucune donnée pour l&apos;instant</p>
+        <p className="mt-1 max-w-sm text-sm text-[var(--text-muted)]">
+          Installe l&apos;extension navigateur ou l&apos;agent desktop et connecte-les avec ton
+          token API pour voir apparaître tes statistiques ici.
+        </p>
+      </div>
+      <Link
+        href="/settings"
+        className="mt-1 rounded-lg bg-orange-500/10 px-3 py-1.5 text-sm font-medium text-orange-400 transition hover:bg-orange-500/20"
+      >
+        Récupérer mon token API →
+      </Link>
     </div>
   );
 }
@@ -78,11 +129,20 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
     [stats.daily]
   );
 
+  const hasData = stats.totals.events > 0;
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-white">Tableau de bord</h1>
-        <div className="flex gap-1 rounded-lg border border-neutral-800 bg-neutral-900 p-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Tableau de bord</h1>
+          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
+            {stats.isAdmin
+              ? "Vue d'ensemble de l'usage IA de ton équipe"
+              : "Ton usage personnel des IA"}
+          </p>
+        </div>
+        <div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-1">
           {RANGES.map((r) => (
             <button
               key={r.value}
@@ -90,7 +150,7 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
               className={`rounded-md px-3 py-1.5 text-sm transition ${
                 range === r.value
                   ? "bg-orange-600 text-white"
-                  : "text-neutral-400 hover:text-white"
+                  : "text-[var(--text-muted)] hover:text-white"
               }`}
             >
               {r.label}
@@ -100,95 +160,174 @@ export default function DashboardClient({ initialStats }: { initialStats: Stats 
       </div>
 
       <div className={loading ? "opacity-50 transition-opacity" : "transition-opacity"}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatTile label="Temps total" value={formatDuration(stats.totals.durationSeconds)} />
-          <StatTile label="Messages envoyés" value={stats.totals.messageCount.toLocaleString("fr-FR")} />
-          <StatTile label="Sessions / événements" value={stats.totals.events.toLocaleString("fr-FR")} />
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-            <h2 className="mb-4 text-sm font-medium text-neutral-300">Temps par IA (heures)</h2>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={providerChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                <XAxis dataKey="name" stroke="#737373" fontSize={12} />
-                <YAxis stroke="#737373" fontSize={12} />
-                <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #262626", borderRadius: 8 }}
-                  labelStyle={{ color: "#fff" }}
-                />
-                <Bar dataKey="heures" radius={[4, 4, 0, 0]}>
-                  {providerChartData.map((entry) => (
-                    <Cell key={entry.provider} fill={PROVIDER_COLORS[entry.provider]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        {!hasData ? (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
+            <EmptyState />
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatTile
+                icon={Clock}
+                label="Temps total"
+                value={formatDuration(stats.totals.durationSeconds)}
+              />
+              <StatTile
+                icon={MessageSquare}
+                label="Messages envoyés"
+                value={stats.totals.messageCount.toLocaleString("fr-FR")}
+              />
+              <StatTile
+                icon={Zap}
+                label="Sessions / événements"
+                value={stats.totals.events.toLocaleString("fr-FR")}
+              />
+            </div>
 
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-            <h2 className="mb-4 text-sm font-medium text-neutral-300">Évolution quotidienne (heures)</h2>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={dailyChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                <XAxis dataKey="day" stroke="#737373" fontSize={12} />
-                <YAxis stroke="#737373" fontSize={12} />
-                <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #262626", borderRadius: 8 }}
-                  labelStyle={{ color: "#fff" }}
-                />
-                <Legend />
-                {activeProviders.map((p) => (
-                  <Line
-                    key={p}
-                    type="monotone"
-                    dataKey={p}
-                    name={PROVIDER_LABELS[p] ?? p}
-                    stroke={PROVIDER_COLORS[p] ?? "#888"}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <ChartCard title="Temps par IA (heures)">
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={providerChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#232327" vertical={false} />
+                    <XAxis dataKey="name" stroke="#8b8b93" fontSize={12} />
+                    <YAxis stroke="#8b8b93" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#131316",
+                        border: "1px solid #232327",
+                        borderRadius: 8,
+                      }}
+                      labelStyle={{ color: "#fff" }}
+                    />
+                    <Bar dataKey="heures" radius={[4, 4, 0, 0]}>
+                      {providerChartData.map((entry) => (
+                        <Cell key={entry.provider} fill={PROVIDER_COLORS[entry.provider]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-        {stats.isAdmin && (
-          <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-            <h2 className="mb-4 text-sm font-medium text-neutral-300">Comparaison par utilisateur</h2>
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-neutral-800 text-neutral-400">
-                  <th className="pb-2 font-normal">Utilisateur</th>
-                  <th className="pb-2 font-normal">Temps</th>
-                  <th className="pb-2 font-normal">Messages</th>
-                  <th className="pb-2 font-normal">Événements</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.byUser.map((u) => (
-                  <tr key={u.userId} className="border-b border-neutral-900 text-white">
-                    <td className="py-2">
-                      <div>{u.name}</div>
-                      <div className="text-xs text-neutral-500">{u.email}</div>
-                    </td>
-                    <td className="py-2">{formatDuration(u.durationSeconds)}</td>
-                    <td className="py-2">{u.messageCount.toLocaleString("fr-FR")}</td>
-                    <td className="py-2">{u.events.toLocaleString("fr-FR")}</td>
-                  </tr>
-                ))}
-                {stats.byUser.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-4 text-center text-neutral-500">
-                      Aucune donnée sur cette période.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              <ChartCard title="Évolution quotidienne (heures)">
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={dailyChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#232327" vertical={false} />
+                    <XAxis dataKey="day" stroke="#8b8b93" fontSize={12} />
+                    <YAxis stroke="#8b8b93" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#131316",
+                        border: "1px solid #232327",
+                        borderRadius: 8,
+                      }}
+                      labelStyle={{ color: "#fff" }}
+                    />
+                    <Legend />
+                    {activeProviders.map((p) => (
+                      <Line
+                        key={p}
+                        type="monotone"
+                        dataKey={p}
+                        name={PROVIDER_LABELS[p] ?? p}
+                        stroke={PROVIDER_COLORS[p] ?? "#888"}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            {stats.bySource.length > 0 && (
+              <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-300">
+                  <Laptop className="h-4 w-4 text-orange-400" />
+                  Web vs. PC — où se passe l&apos;usage IA ?
+                </h2>
+                {(() => {
+                  const total = stats.bySource.reduce((s, x) => s + x.durationSeconds, 0) || 1;
+                  return (
+                    <>
+                      <div className="flex h-3 w-full overflow-hidden rounded-full bg-black/30">
+                        {stats.bySource.map((s) => (
+                          <div
+                            key={s.source}
+                            style={{
+                              width: `${(s.durationSeconds / total) * 100}%`,
+                              backgroundColor: SOURCE_COLORS[s.source] ?? "#888",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {stats.bySource.map((s) => (
+                          <div key={s.source} className="flex items-center gap-3">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: SOURCE_COLORS[s.source] ?? "#888" }}
+                            />
+                            <div>
+                              <p className="text-sm text-white">
+                                {SOURCE_LABELS[s.source] ?? s.source}
+                              </p>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {formatDuration(s.durationSeconds)} ·{" "}
+                                {((s.durationSeconds / total) * 100).toFixed(0)}% ·{" "}
+                                {s.messageCount.toLocaleString("fr-FR")} messages
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
+            {stats.isAdmin && (
+              <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-300">
+                  <Trophy className="h-4 w-4 text-orange-400" />
+                  Comparaison par utilisateur
+                </h2>
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
+                      <th className="pb-2 font-normal">Utilisateur</th>
+                      <th className="pb-2 font-normal">Temps</th>
+                      <th className="pb-2 font-normal">Messages</th>
+                      <th className="pb-2 font-normal">Événements</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.byUser.map((u, i) => (
+                      <tr
+                        key={u.userId}
+                        className="border-b border-[var(--border)]/60 text-white last:border-0"
+                      >
+                        <td className="py-2.5">
+                          <div className="flex items-center gap-2">
+                            {i === 0 && u.durationSeconds > 0 && (
+                              <Trophy className="h-3.5 w-3.5 text-orange-400" />
+                            )}
+                            <div>
+                              <div>{u.name}</div>
+                              <div className="text-xs text-[var(--text-muted)]">{u.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2.5">{formatDuration(u.durationSeconds)}</td>
+                        <td className="py-2.5">{u.messageCount.toLocaleString("fr-FR")}</td>
+                        <td className="py-2.5">{u.events.toLocaleString("fr-FR")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
